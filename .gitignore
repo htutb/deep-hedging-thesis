@@ -1,0 +1,12 @@
+**/__pycache__
+
+.vscode/
+
+output/
+outputs/
+examples/
+assets/
+Kaggle.ipynb
+report.pdf
+README.md
+venv

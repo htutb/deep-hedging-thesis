@@ -1,0 +1,7 @@
+tqdm 
+seaborn 
+matplotlib
+torch
+torchvision
+torchaudio
+numpy
