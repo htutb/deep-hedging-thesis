@@ -254,6 +254,8 @@ class SimpleRunner(ExperimentRunner):
         if self.agent_type in ["Simple", "CVaR (p = 0.5)", "CVaR (p = 0.99)", "Recurrent", "Adam", "SGLD", "SGHMC"]:
             self.agent.fit(contingent_claim, epochs, paths, verbose, T, logging=True)
             self.training_logs = self.agent.training_logs
+            os.makedirs("weights", exist_ok=True)
+            torch.save(self.agent.state_dict(), f"weights/{self.agent_type}_weights.pt")
 
         # All agents can validate
         loss = self.agent.validate(contingent_claim, int(1e6), T, logging=True)
