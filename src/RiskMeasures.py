@@ -160,4 +160,4 @@ class ExpectationVariance(RiskMeasure):
         self.alpha = alpha
 
     def forward(self, portfolio_value: torch.Tensor):
-        return -(portfolio_value.mean() - self.alpha * portfolio_value.var())
+        return portfolio_value.mean() - self.alpha * portfolio_value.var()
