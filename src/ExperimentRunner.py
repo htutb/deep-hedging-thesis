@@ -24,15 +24,15 @@ import src.RiskMeasures as RiskMeasures
 
 
 agents = {
-    "simple": SimpleAgent,
-    "recurrent": RecurrentAgent,
-    "recurrent_05": RecurrentAgent,
-    "recurrent_099": RecurrentAgent,
-    "recurrent_adam": RecurrentAgent,
-    "recurrent_sgld": RecurrentAgent,
-    "recurrent_sghmc": RecurrentAgent,
-    "delta": DeltaAgent,
-    "naked": NakedAgent
+    "Simple": SimpleAgent,
+    "Recurrent": RecurrentAgent,
+    "CVaR (p = 0.5)": RecurrentAgent,
+    "CVaR (p = 0.99)": RecurrentAgent,
+    "Adam": RecurrentAgent,
+    "SGLD": RecurrentAgent,
+    "SGHMC": RecurrentAgent,
+    "Delta": DeltaAgent,
+    "Naked": NakedAgent
 }
 
 class ExperimentRunner:
@@ -59,7 +59,7 @@ class ExperimentRunner:
         self.agent: Agent = agents[self.agent_type](criterion, optimizer, cost_function, hedging_instruments, step_interest_rate, h_dim=h_dim, use_gpu=self.use_gpu)
 
         # Only fit trainable agents (simple and recurrent have optimizer/scheduler)
-        if self.agent_type in ["simple", "recurrent_05", "recurrent_099", "recurrent", "recurrent_adam", "recurrent_sgld", "recurrent_sghmc"]:
+        if self.agent_type in ["Simple", "CVaR (p = 0.5)", "CVaR (p = 0.99)", "Recurrent", "Adam", "SGLD", "SGHMC"]:
             self.agent.fit(contingent_claim, epochs, paths, verbose, T, logging=True)
             self.training_logs = self.agent.training_logs
 
@@ -241,7 +241,7 @@ class SimpleRunner(ExperimentRunner):
             ) -> None:
 
         # Handle different agent initialization signatures
-        if self.agent_type in ["simple", "recurrent_05", "recurrent_099", "recurrent", "recurrent_adam", "recurrent_sgld", "recurrent_sghmc"]:
+        if self.agent_type in ["Simple", "CVaR (p = 0.5)", "CVaR (p = 0.99)", "Recurrent", "Adam", "SGLD", "SGHMC"]:
             # Trainable agents: need optimizer
             self.agent = agents[self.agent_type](criterion, optimizer, cost_function, hedging_instruments, step_interest_rate, h_dim=h_dim, use_gpu=self.use_gpu)
         else:  # delta, naked
@@ -251,7 +251,7 @@ class SimpleRunner(ExperimentRunner):
             self.agent = agents[self.agent_type](criterion, cost_function, hedging_instruments, stock_params, step_interest_rate, h_dim=h_dim, use_gpu=self.use_gpu)
 
         # Only fit trainable agents (simple and recurrent have optimizer/scheduler)
-        if self.agent_type in ["simple", "recurrent_05", "recurrent_099", "recurrent", "recurrent_adam", "recurrent_sgld", "recurrent_sghmc"]:
+        if self.agent_type in ["Simple", "CVaR (p = 0.5)", "CVaR (p = 0.99)", "Recurrent", "Adam", "SGLD", "SGHMC"]:
             self.agent.fit(contingent_claim, epochs, paths, verbose, T, logging=True)
             self.training_logs = self.agent.training_logs
 
@@ -278,36 +278,26 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
 
     for runner in runners:
         val_profit = runner.validation_logs["validation_profit"]
-        val_payoff = runner.validation_logs["validation_claim_payoff"]
-        naive_price = val_payoff.mean()
         
-
-        # sns.histplot(
-        #     (val_profit + naive_price).numpy(),
-        #     stat='count',
-        #     kde=False,
-        #     label=f'{runner.agent_type}, N: {len(val_profit)}, Loss: {val_loss:.2f}',
-        #     binwidth=0.03,
-        #     alpha=0.5,
-        #     ax=ax1
-        # )
         sns.histplot(
-            (val_profit + naive_price).numpy(),
-            bins=5000,
-            stat='count',
+            (val_profit).numpy(),
+            binwidth=0.03,
+            stat='density',
             kde=False,
             label=f'{runner.agent_type}',
             alpha=0.5,
+            edgecolor=None,
+            linewidth=0,
             ax=ax1
         )
 
-    ax1.set_title("P&L Distribution")
-    ax1.set_xlim(-0.6, 0.3)
+    ax1.set_title("Hedging P&L")
+    ax1.set_xlim(-1, 0.5)
     ax1.grid()
     ax1.legend()
 
     if save:
-        plt.savefig(f'{file_prefix}_pnl_dist.pdf')
+        plt.savefig(f'{file_prefix}_pnl.pdf')
 
     plt.figure(figsize=(12, 8))
     ax2 = plt.gca()
@@ -315,38 +305,31 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
     for runner in runners:
         val_profit = runner.validation_logs["validation_profit"]
 
-        price = -runner.agent.criterion(val_profit).item()
+        price = runner.validation_logs["price"]
         hedging_error = val_profit + price
         realized_cvar = -runner.agent.criterion(hedging_error).item()
 
-        # sns.histplot(
-        #     hedging_error.numpy(),
-        #     stat='count',
-        #     kde=False,
-        #     label=f'{runner.agent_type}, Price: {price:.4f}, Realized CVaR: {realized_cvar:.4f}',
-        #     binwidth=0.03,
-        #     alpha=0.5,
-        #     ax=ax2
-        # )
-
         sns.histplot(
             hedging_error.numpy(),
-            bins=5000,
-            stat='count',
+            binwidth=0.03,
+            stat='density',
             kde=False,
             label=f'{runner.agent_type}, Price: {price:.4f}, Realized CVaR: {realized_cvar:.4f}',
             alpha=0.5,
+            edgecolor=None,
+            linewidth=0,
             ax=ax2
         )
 
 
-    ax2.set_title("Price-adjusted Hedging Error Distribution")
-    ax2.set_xlim(9, 11)
+    ax2.set_title("Price-adjusted P&L")
+    # ax2.set_xlim(9, 11)
+    ax2.set_xlim(-0.5, 1.5)
     ax2.grid()
     ax2.legend()
 
     if save:
-        plt.savefig(f'{file_prefix}_price_adjusted_dist.pdf')
+        plt.savefig(f'{file_prefix}_price_adjusted_pnl.pdf')
 
     plt.figure(figsize=(12, 8))
     ax3 = plt.gca()

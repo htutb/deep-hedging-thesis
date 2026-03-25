@@ -60,7 +60,7 @@ class SGHMCOptimizer(torch.optim.Optimizer):
     '''
     Stochastic Gradient Hamiltonian Monte Carlo
     '''
-    def __init__(self, params, lr=0.005, weight_decay=0.0, momentum=0.9, temperature=0.00005):
+    def __init__(self, params, lr=0.005, weight_decay=0.0, momentum=0.9, temperature=0.000001):
         defaults = dict(lr=lr, weight_decay=weight_decay, momentum=momentum, temperature=temperature)
         super().__init__(params, defaults)
         for group in self.param_groups:

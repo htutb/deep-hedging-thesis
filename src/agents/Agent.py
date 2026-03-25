@@ -191,21 +191,30 @@ class Agent(torch.nn.Module, ABC):
             self.training_logs["training_losses"] = torch.Tensor(losses).cpu()
 
         return losses
+    
+
+    def get_price(self, contingent_claim: Claim, paths=int(1e5), T=55):
+        with torch.no_grad():
+            self.eval()
+            profit, _ = self.pl(contingent_claim, paths, T, False)
+            price = -self.criterion(profit).item()
+        return price
 
     def validate(self, contingent_claim: Claim, paths = int(1e6), T = 365, logging = True):
         """
         :param contingent_claim: Instrument
         :param epochs: int
         :param batch_size: int
-        :return: None
         """
         with torch.no_grad():
             self.eval()
             profit, claim_payoff = self.pl(contingent_claim, paths, T, True)
             loss = self.criterion(profit)
+            price = self.get_price(contingent_claim, T=T)
             if logging:
                 self.validation_logs["validation_profit"] = profit.detach().cpu()
                 self.validation_logs["validation_claim_payoff"] = claim_payoff.detach().cpu()
                 self.validation_logs["validation_loss"] = loss.detach().cpu()
+                self.validation_logs["price"] = price
 
             return loss.item()

@@ -36,12 +36,9 @@ class SimpleAgent(Agent):
         ])
     ).to(self.device)
 
-        # self.optimizer = AdamOptimizer(self.network.parameters(), lr=lr)
-        # self.optimizer = SGLDOptimizer(self.network.parameters(), lr=lr)
-        # self.optimizer = SGHMCOptimizer(self.network.parameters(), lr=lr)
 
         self.optimizer = optimizer(self.network.parameters(), lr=lr)
-        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=2500)
+        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=5000)
 
 
     def input_dim(self) -> int:

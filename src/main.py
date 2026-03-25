@@ -25,7 +25,7 @@ def main():
     seed = 133
     torch.manual_seed(seed)
 
-    T = 50
+    T = 55
     total_rate = 0.0
     step_interest_rate = (total_rate + 1) ** (1 / T) - 1
 
@@ -50,13 +50,12 @@ def main():
     contingent_claim: Claim = BSCall(stock, S0, T, drift, volatility=0.75)
     hedging_instruments: List[Instrument] = [stock]
 
-    epochs = 2500
+    epochs = 5000
     paths = int(1e5)
     verbose = True
 
-    # criterion = RiskMeasures.CVaR(0.95) # CVaR with confidence level 0.95
     criterion = RiskMeasures.CVaR(0.99) # CVaR with confidence level 0.99
-    # criterion2 = RiskMeasures.CVaR(0.5) # CVaR with confidence level 0.5
+    # criterion2 = RiskMeasures.CVaR(0.99) # CVaR with confidence level 0.5
 
     prop_cost = 0.01
     cost_function: CostFunction = ProportionalCost(prop_cost)
@@ -69,41 +68,64 @@ def main():
 
     # # Delta hedging agent - requires strike, expiry, drift, volatility as stock_params
     # delta_params = (S0, T, drift, 0.75)  # strike, expiry, drift, volatility
-    # delta_runner = SimpleRunner("delta", use_gpu=True)
+    # delta_runner = SimpleRunner("Delta", use_gpu=True)
     # res = delta_runner.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, stock_params=delta_params)
     # print(res)
     # runners.append(delta_runner)
 
     # # Simple agent - trainable, no stock_params needed
-    # simple_runner = SimpleRunner("simple", use_gpu=True)
-    # h_dim = 15
+    # simple_runner = SimpleRunner("Simple", use_gpu=True)
+    # h_dim = 16
     # res = simple_runner.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
     # print(res)
     # runners.append(simple_runner)
 
+    # # Recurrent agent - trainable, no stock_params needed
+    # recurrent_runner_adam = SimpleRunner("Recurrent", use_gpu=True)
+    # h_dim = 16
+    # res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
+    # print(res)
+    # runners.append(recurrent_runner_adam)
+
+    # # Recurrent agent - trainable, no stock_params needed
+    # recurrent_runner_adam = SimpleRunner("CVaR (p = 0.5)", use_gpu=True)
+    # h_dim = 16
+    # res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
+    # print(res)
+    # runners.append(recurrent_runner_adam)
+
+
+    # # Recurrent agent - trainable, no stock_params needed
+    # recurrent_runner_adam = SimpleRunner("CVaR (p = 0.99)", use_gpu=True)
+    # h_dim = 16
+    # res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion2, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
+    # print(res)
+    # runners.append(recurrent_runner_adam)
+
+
     # Recurrent agent - trainable, no stock_params needed
-    recurrent_runner_sgld = SimpleRunner("recurrent_sgld", use_gpu=True)
-    h_dim = 32
+    recurrent_runner_adam = SimpleRunner("Adam", use_gpu=True)
+    h_dim = 1
+    res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
+    print(res)
+    runners.append(recurrent_runner_adam)
+
+    # Recurrent agent - trainable, no stock_params needed
+    recurrent_runner_sgld = SimpleRunner("SGLD", use_gpu=True)
+    h_dim = 16
     res = recurrent_runner_sgld.run(contingent_claim, hedging_instruments, criterion, sgld_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
     print(res)
     runners.append(recurrent_runner_sgld)
 
     # Recurrent agent - trainable, no stock_params needed
-    recurrent_runner_sghmc = SimpleRunner("recurrent_sghmc", use_gpu=True)
-    h_dim = 32
+    recurrent_runner_sghmc = SimpleRunner("SGHMC", use_gpu=True)
+    h_dim = 16
     res = recurrent_runner_sghmc.run(contingent_claim, hedging_instruments, criterion, sghmc_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
     print(res)
     runners.append(recurrent_runner_sghmc)
 
-    # Recurrent agent - trainable, no stock_params needed
-    recurrent_runner_adam = SimpleRunner("recurrent_adam", use_gpu=True)
-    h_dim = 32
-    res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
-    print(res)
-    runners.append(recurrent_runner_adam)
 
-
-    plot_dists(runners, save=True, file_prefix=f"outputs/new_recurrent_sgld_sghmc_adam_cvar0_99_0_01_cost")
+    plot_dists(runners, save=True, file_prefix=f"outputs/adam_sgld_sghmc_0_99")
     plt.show()
 
 
