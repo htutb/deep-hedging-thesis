@@ -112,25 +112,6 @@ class CVaR(torch.nn.Module):
         cvar_loss = omega + (1.0 / (1.0 - self.p)) * excess.mean()
 
         return -cvar_loss
-    
-    # def __init__(self, p: float, beta: float = 1e-2, omega: float = 0.0):
-    #     super().__init__()
-    #     self.p = p
-    #     self.beta = beta
-    #     self.omega = nn.Parameter(torch.tensor(float(omega), dtype=torch.float32))
-
-    # def forward(self, portfolio_value: torch.Tensor):
-    #     x = portfolio_value.view(-1)
-    #     loss = -x
-
-    #     # VaR threshold
-    #     omega = self.omega.to(device=x.device, dtype=x.dtype)
-
-    #     # smooth version of max(0, z)
-    #     excess = F.softplus((loss - omega) / self.beta) * self.beta
-    #     cvar_loss = omega + (1.0 / (1 - self.p)) * excess.mean()
-
-    #     return -cvar_loss
 
 
 class Variance(RiskMeasure):

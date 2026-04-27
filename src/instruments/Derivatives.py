@@ -80,7 +80,7 @@ class BSCall(EuropeanCall, Instrument):
         self.norm = Normal(0, 1)
 
     def value(self, primary_path) -> torch.Tensor:
-        expiries = self.expiry - (torch.arange(primary_path.shape[1]) + 1) * (self.expiry / primary_path.shape[1])
+        expiries = self.expiry - (torch.arange(primary_path.shape[1], device=primary_path.device) + 1) * (self.expiry / primary_path.shape[1])
         expiries = expiries.unsqueeze(0)
         eps = 1e-8
         sqrt_exp = torch.sqrt(expiries + eps)
@@ -93,7 +93,7 @@ class BSCall(EuropeanCall, Instrument):
         return value
 
     def delta(self, primary_path) -> torch.Tensor:
-        expiries = self.expiry - (torch.arange(primary_path.shape[1]) + 1) * (self.expiry / primary_path.shape[1])
+        expiries = self.expiry - (torch.arange(primary_path.shape[1], device=primary_path.device) + 1) * (self.expiry / primary_path.shape[1])
         expiries = expiries.unsqueeze(0)
         eps = 1e-8
         sqrt_exp = torch.sqrt(expiries + eps)
@@ -124,7 +124,7 @@ class BSPut(EuropeanPut, Instrument):
             self.norm = Normal(0, 1)
 
         def value(self, primary_path) -> torch.Tensor:
-            expiries = self.expiry - (torch.arange(primary_path.shape[1]) + 1) * (self.expiry / primary_path.shape[1])
+            expiries = self.expiry - (torch.arange(primary_path.shape[1], device=primary_path.device) + 1) * (self.expiry / primary_path.shape[1])
             expiries = expiries.unsqueeze(0)
             eps = 1e-8
             sqrt_exp = torch.sqrt(expiries + eps)
@@ -137,7 +137,7 @@ class BSPut(EuropeanPut, Instrument):
             return value
 
         def delta(self, primary_path) -> torch.Tensor:
-            expiries = self.expiry - (torch.arange(primary_path.shape[1]) + 1) * (self.expiry / primary_path.shape[1])
+            expiries = self.expiry - (torch.arange(primary_path.shape[1], device=primary_path.device) + 1) * (self.expiry / primary_path.shape[1])
             expiries = expiries.unsqueeze(0)
             eps = 1e-8
             sqrt_exp = torch.sqrt(expiries + eps)

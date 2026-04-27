@@ -41,13 +41,13 @@ def main():
     S0 = 1
     V0 = 0.09
     drift = step_interest_rate
-    kappa = 0.5
+    kappa = 2.0
     theta = 0.04
-    xi = 0.75
+    xi = 0.39
     rho = -0.75
     stock = HestonStock(S0, V0, drift, kappa, theta, xi, rho)
 
-    contingent_claim: Claim = BSCall(stock, S0, T, drift, volatility=0.75)
+    contingent_claim: Claim = BSCall(stock, S0, T, drift, volatility=0.30)
     hedging_instruments: List[Instrument] = [stock]
 
     epochs = 5000

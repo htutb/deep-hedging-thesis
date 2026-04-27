@@ -2,6 +2,7 @@ from typing import List
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 
 from typing import List
 from matplotlib import pyplot as plt
@@ -16,11 +17,9 @@ from src.agents.DeltaAgent import DeltaAgent
 from src.agents.NakedAgent import NakedAgent
 
 from src.instruments.Claims import Claim
-from src.instruments.Derivatives import EuropeanCall, BSCall, BSPut, EuropeanPut
 from src.instruments.Instruments import Instrument
-from src.instruments.Primaries import GeometricBrownianStock, HestonStock, JumpStock
 
-import src.RiskMeasures as RiskMeasures
+from src.optimizers import AdamOptimizer, SGLDOptimizer, SGHMCOptimizer
 
 
 agents = {
@@ -104,95 +103,56 @@ class ExperimentRunner:
         return plot
 
 
-    def plot_path(self, i):
+    def plot_path(self):
         portfolio_logs = self.agent.portfolio_logs
-        portfolio_value = portfolio_logs["portfolio_value"][i]
-        cash_account = portfolio_logs["cash_account"][i]
-        positions = portfolio_logs["positions"][i]
-        hedge_paths = portfolio_logs["hedge_paths"][i]
-        claim_payoff = portfolio_logs["claim_payoff"][i]
-        claim_price = portfolio_logs["claim_payoff"].mean()
-        claim_delta = None
-        claim_name = self.claim.__class__.__name__
-        hedge_names = [h.__class__.__name__ for h in self.hedging_instruments]
+        # all quantities averaged across the  batch
+        portfolio_value = portfolio_logs["portfolio_value"].mean(dim=0)   # (T,)
+        cash_account    = portfolio_logs["cash_account"].mean(dim=0)      # (T,)
+        claim_payoff    = portfolio_logs["claim_payoff"].mean()           
+        claim_price     = claim_payoff
 
-        if "claim_delta" in portfolio_logs and portfolio_logs["claim_delta"] is not None:
-            claim_delta = portfolio_logs["claim_delta"][i]
-
-        fig, ax = plt.subplots(2, 2)
-
+        fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         for a in ax.flatten():
-            a.grid(True)  # Adding grid to each subplot
+            a.grid(True)
 
-        for i in range(hedge_paths.shape[1]):
-            sns.lineplot(x=range(len(hedge_paths[:, i])), y=hedge_paths[:, i], ax=ax[0, 0], label=hedge_names[i])
-        ax[0,0].set_title("Price of Hedging Instruments")
-        ax[0,0].set_xlabel("Time")
-        ax[0,0].set_ylabel("Price")
-        ax[0,0].legend()
-
-
-        for i in range(positions.shape[1]):
-            sns.lineplot(x=range(len(positions[:, i])), y=positions[:, i], ax=ax[0, 1], label=hedge_names[i])
-        ax[0, 1].set_title("Agent Positions")
-        ax[0, 1].set_xlabel("Time")
-        ax[0, 1].set_ylabel("Positions")
-        # add line for y = 0
-        ax[0, 1].axhline(y=0, color='black', linestyle='--', alpha=0.8)
-        # make diverging from 0
-        max_value = max(abs(positions.min()), abs(positions.max()))
-
-        if claim_delta is not None:
-            # add the delta of the claim to the graph
-            ax[0, 1] = sns.lineplot(x=range(len(claim_delta)), y=claim_delta, ax=ax[0, 1], color='red', label=f'Delta of {claim_name}', alpha=0.9, linestyle='-.')
-            max_delta = max(abs(claim_delta.min()), abs(claim_delta.max()))
-            lim = max(max_value, max_delta) * 1.1
-        else:
-            lim = max_value * 1.1
-        ax[0, 1].set_ylim(-lim, lim)
-
-
+        #left: mean P&L over time
         pnl = portfolio_value + cash_account
         pnl += claim_price
         pnl[-1] -= claim_payoff
+        pnl = pnl[:-1]
 
-        sns.lineplot(x=range(len(pnl)), y=pnl, ax=ax[1, 0])
-        ax[1, 0].set_title("Total P&L (Including Claim)")
-        ax[1, 0].set_xlabel("Time")
-        ax[1, 0].set_ylabel("P&L")
-        # add line for y = 0
-        ax[1, 0].axhline(y=0, color='black', linestyle='--', alpha=0.5)
-        # make diverging from 0
-        max_value = max(abs(pnl.min()), abs(pnl.max())) * 1.1
-        ax[1, 0].set_ylim(-max_value, max_value)
+        sns.lineplot(x=range(len(pnl)), y=pnl, ax=ax[0])
+        ax[0].set_title("Mean Total P&L (Including Claim)")
+        ax[0].set_xlabel("Time")
+        ax[0].set_ylabel("P&L")
+        ax[0].axhline(y=0, color='black', linestyle='--', alpha=0.5)
+        max_val = max(abs(pnl.min()), abs(pnl.max())) * 1.1
+        ax[0].set_ylim(-max_val, max_val)
 
-        final_cash = cash_account[-1] + claim_price
-        final_portfolio_value = portfolio_value[-1]
+        #right: mean terminal breakdown
+        final_cash  = cash_account[-1] + claim_price
+        final_pv    = portfolio_value[-1]
+        categories  = ['Cash', 'PV', 'CC', 'P&L']
+        values      = [final_cash.item(), final_pv.item(), -claim_payoff.item(),
+                       (final_cash + final_pv - claim_payoff).item()]
+        colors      = ['red', 'blue', 'green', 'orange']
 
-        # Setting up the diverging bars
-        categories = ['Cash', 'PV', 'CC', 'P&L']
-        values = [final_cash, final_portfolio_value, -claim_payoff, final_cash + final_portfolio_value -claim_payoff]
-        colors = ['red', 'blue', 'green', 'orange']
+        ax[1].bar(categories, values, color=colors)
+        ax[1].set_title("Mean Final Portfolio Value Breakdown")
+        ax[1].set_xlabel("Category")
+        ax[1].set_ylabel("Value")
+        ax[1].hlines(0, -1, len(categories), colors='black', linestyles='dashed')
 
-        ax[1,1].bar(categories, values, color=colors)
-        ax[1,1].set_title("Final Portfolio Value Breakdown")
-        ax[1,1].set_xlabel("Category")
-        ax[1,1].set_ylabel("Value [€]")
+        max_val = max(abs(min(values)), abs(max(values))) * 1.2
+        ax[1].set_ylim(-max_val, max_val)
 
-        # Adding a horizontal line at y=0
-        ax[1,1].hlines(0, -1, len(categories), colors='black', linestyles='dashed')
+        padding = max_val * 0.04
+        for j, v in enumerate(values):
+            y  = v + padding if v >= 0 else v - padding
+            va = 'bottom' if v >= 0 else 'top'
+            ax[1].text(j, y, f"{v:.2f}", color='black', ha='center', va=va, fontweight='bold')
 
-        # Set y limits to center the plot around 0
-        max_value = max(abs(min(values)), abs(max(values))) * 1.1
-        ax[1,1].set_ylim(-max_value, max_value)
-
-        # Adding value annotations to the bars
-        for i, v in enumerate(values):
-            ax[1,1].text(i, v, f" {v:.2f}", color='black', ha='center', fontweight='bold')
-
-        # make sure the text does not overlap
         fig.tight_layout()
-
         return fig
 
 
@@ -212,7 +172,7 @@ class ExperimentRunner:
         plot_dists([*compare, self], save=save, file_prefix=file_prefix)
 
         for i in range(n):
-            self.plot_path(i)
+            self.plot_path()
             if save:
                 plt.savefig(f'{file_prefix}_path_{i}.pdf')
         plt.show()
@@ -272,6 +232,173 @@ class SimpleRunner(ExperimentRunner):
         plt.show()
 
 
+def plot_positions_comparison(runners: List[ExperimentRunner]):
+    """
+    Plot all agents' mean hedge positions on a single axis with the BS delta as reference.
+    If batchsize > 1, plot with +- 1std, else plot an exact position curve only.
+    """
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.grid(True)
+
+    delta_plotted = False
+
+    for runner in runners:
+        portfolio_logs = runner.agent.portfolio_logs
+        positions = portfolio_logs["positions"]          # (B, T, N)
+        hedge_names = [h.__class__.__name__ for h in runner.hedging_instruments]
+
+        mean_pos = positions.mean(dim=0)[:-1]            # (T-1, N)
+        std_pos = positions.std(dim=0)[:-1]              # 0 if B=1
+
+        for n in range(mean_pos.shape[1]):
+            label = runner.agent_type if mean_pos.shape[1] == 1 else f"{runner.agent_type} — {hedge_names[n]}"
+            t = range(mean_pos.shape[0])
+            line = sns.lineplot(x=t, y=mean_pos[:, n], ax=ax, label=label)
+            color = line.get_lines()[-1].get_color()
+            if positions.shape[0] > 1:
+                ax.fill_between(
+                    t,
+                    (mean_pos[:, n] - std_pos[:, n]).numpy(),
+                    (mean_pos[:, n] + std_pos[:, n]).numpy(),
+                    alpha=0.15,
+                    color=color,
+                )
+
+        if not delta_plotted:
+            claim_delta = portfolio_logs.get("claim_delta")
+            if claim_delta is not None:
+                mean_delta = claim_delta.mean(dim=0)[:-1]  # (T-1,)
+                sns.lineplot(
+                    x=range(len(mean_delta)),
+                    y=mean_delta,
+                    ax=ax,
+                    color='red',
+                    linestyle='-.',
+                    alpha=0.9,
+                    label="BS delta",
+                )
+                delta_plotted = True
+
+    ax.set_title("Agent Positions vs BS Delta")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Position")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    return fig
+
+
+def validate_from_weights(
+        adam_weights: str,
+        sgld_weights: str,
+        sghmc_weights: str,
+        prices_path: str,
+        contingent_claim: Claim,
+        hedging_instruments: List[Instrument],
+        criterion: torch.nn.Module,
+        step_interest_rate: float = 0.0,
+        cost_function: CostFunction = ProportionalCost(0.01),
+        save: bool = True,
+        file_prefix: str = "outputs/validation",
+        use_gpu: bool = True,
+) -> List[ExperimentRunner]:
+    """
+    Load pre-trained recurrent agent weights and run inference on real market data.
+
+    Reads price data from a CSV file (each row is one price path, each column
+    is one timestep — no header, no date column) and runs inference for each
+    of the three optimisers (Adam, SGLD, SGHMC).
+    """
+
+    # expected csv format: no headers
+    df = pd.read_csv(prices_path, header=None)
+    primary_path = torch.tensor(df.values, dtype=torch.float32)  # (B, T) or (1, T)
+
+    _, T = primary_path.shape
+
+    weight_map = {
+        "Adam":  (adam_weights,  AdamOptimizer),
+        "SGLD":  (sgld_weights,  SGLDOptimizer),
+        "SGHMC": (sghmc_weights, SGHMCOptimizer),
+    }
+
+    runners = []
+
+    for agent_type, (weight_path, optimizer_cls) in weight_map.items():
+        # load state dict (for h_dim)
+        state_dict = torch.load(weight_path, map_location="cpu", weights_only=True)
+        h_dim = state_dict["network.fc1.weight"].shape[0]
+
+        runner = SimpleRunner(agent_type, use_gpu=use_gpu)
+        runner.agent = agents[agent_type](
+            criterion,
+            optimizer_cls,
+            cost_function,
+            hedging_instruments,
+            step_interest_rate,
+            h_dim=h_dim,
+            use_gpu=use_gpu,
+        )
+        runner.agent.load_state_dict(state_dict)
+        runner.agent.eval()
+
+        device = runner.agent.device
+        primary_path_dev = primary_path.to(device)
+
+        with torch.no_grad():
+            hedge_paths = torch.stack(
+                [instr.value(primary_path_dev).to(device) for instr in hedging_instruments],
+                dim=-1,
+            )  # (B, T, N)
+            runner.agent.compute_portfolio(hedge_paths, logging=True)
+
+            claim_payoff = contingent_claim.payoff(primary_path_dev).to(device) # (B,)
+            claim_delta = contingent_claim.delta(primary_path_dev) # (B, T)
+
+            runner.agent.portfolio_logs["claim_payoff"] = claim_payoff.detach().cpu()
+            runner.agent.portfolio_logs["claim_delta"] = (
+                claim_delta.detach().cpu() if claim_delta is not None else None
+            )
+
+            # realized P&L: final PV + cash - claim
+            portfolio_final = (
+                runner.agent.portfolio_logs["portfolio_value"][:, -1]
+                + runner.agent.portfolio_logs["cash_account"][:, -1]
+            )  # (B,)
+            profit = portfolio_final - claim_payoff.cpu()  # (B,)
+
+            # risk-measure over the batch
+            realized_loss = -criterion(profit).item()
+
+        runner.portfolio_logs = runner.agent.portfolio_logs
+        runner.claim = contingent_claim
+        runner.hedging_instruments = hedging_instruments
+
+        print(
+            f"[{agent_type}]  mean P&L: {profit.mean():.4f}  std: {profit.std():.4f}"
+            f"  |  Realized {criterion.__class__.__name__}: {realized_loss:.4f}"
+        )
+        runners.append(runner)
+
+    output_dir = os.path.dirname(file_prefix)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    # one summary plot per agent
+    for runner in runners:
+        fig = runner.plot_path()
+        if save:
+            fig.savefig(f"{file_prefix}_{runner.agent_type}_summary.pdf")
+
+    # combined positions comparison
+    fig_cmp = plot_positions_comparison(runners)
+    if save:
+        fig_cmp.savefig(f"{file_prefix}_positions_comparison.pdf")
+
+    plt.show()
+
+    return runners
+
+
 def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', x_lim=25):
     os.makedirs("outputs", exist_ok=True)
 
@@ -325,8 +452,16 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
 
 
     ax2.set_title("Price-adjusted P&L")
-    # ax2.set_xlim(9, 11)
-    ax2.set_xlim(-0.5, 1.5)
+    
+    # CVaR (0.99)
+    ax2.set_xlim(-0.2, 0.8)
+
+    # CVaR (0.5)
+    # ax2.set_xlim(-0.6, 0.4)
+
+    # Mean-Variance
+    # ax2.set_xlim(-0.6, 0.4)
+
     ax2.grid()
     ax2.legend()
 
@@ -352,7 +487,14 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
     ax3.set_ylabel("Loss")
     ax3.grid(True)
     ax3.legend()
-    ax3.set_ylim(8, 40)
+    # CVaR (0.99)
+    ax3.set_ylim(0, 5)
+
+    # CVaR (0.5)
+    # ax3.set_ylim(0, 3)
+
+    # Mean-Variance
+    # ax3.set_ylim(0, 3)
 
     if save:
         plt.savefig(f"{file_prefix}_training_losses.pdf")

@@ -5,8 +5,10 @@
 output/
 outputs/
 examples/
+weights/
 assets/
 Kaggle.ipynb
 report.pdf
 README.md
 venv
+data/

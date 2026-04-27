@@ -79,24 +79,36 @@ class HestonStock(Primary):
         self.xi = xi
         self.rho = rho
 
+        assert 2 * kappa * theta / xi**2 >= 1, f" {2 * kappa * theta / xi**2} is less that 1, Feller condition not satisfied, may lead to negative variance paths"
+
     def name(self):
         return f"Heston Stock with S0={self.S0}, V0={self.V0}, mu={self.mu}, kappa={self.kappa}, theta={self.theta}, xi={self.xi}, rho={self.rho}"
 
     def simulate(self, P, T):
+
         S = torch.zeros(P, T)
         V = torch.zeros(P, T)
-
         S[:, 0] = self.S0
         V[:, 0] = self.V0
-        step_size = 1 / T
 
+        step_size = 1 / (T - 1)
         stock_increments = torch.randn(P, T - 1) * np.sqrt(step_size)
         variance_increments = torch.randn(P, T - 1) * np.sqrt(step_size)
+        variance_increments = (
+            self.rho * stock_increments
+            + np.sqrt(1 - self.rho ** 2) * variance_increments
+        )
 
         for t in range(1, T):
-            S[:, t] = S[:, t - 1] + self.mu * S[:, t - 1] * step_size + torch.sqrt(torch.clamp(V[:,t - 1], min=0)) * S[:, t - 1] * stock_increments[:, t - 1]
-            V[:, t] = V[:, t - 1] + self.kappa * (self.theta - torch.clamp(V[:,t - 1], min=0)) * step_size + self.xi * torch.sqrt(torch.clamp(V[:,t - 1], min=0)) * (self.rho * variance_increments[:, t - 1] + np.sqrt(1 - self.rho ** 2) * stock_increments[:, t - 1])
-
+            V[:, t] = (
+                V[:, t - 1]
+                + self.kappa * (self.theta - torch.clamp(V[:, t - 1], min=0)) * step_size
+                + self.xi * torch.sqrt(torch.clamp(V[:, t - 1], min=0)) * variance_increments[:, t - 1]
+            )
+            S[:, t] = S[:, t - 1] * torch.exp(
+                (self.mu - 0.5 * torch.clamp(V[:, t - 1], min=0)) * step_size
+                + torch.sqrt(torch.clamp(V[:, t - 1], min=0)) * stock_increments[:, t - 1]
+            )
         return S
     
 
