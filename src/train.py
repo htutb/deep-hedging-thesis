@@ -55,7 +55,8 @@ def main():
     verbose = True
 
     criterion = RiskMeasures.CVaR(0.99) # CVaR with confidence level 0.99
-    # criterion2 = RiskMeasures.CVaR(0.99) # CVaR with confidence level 0.5
+    # criterion = RiskMeasures.CVaR(0.5) # CVaR with confidence level 0.5
+    # criterion = RiskMeasures.ExpectationVariance(1.00) # Mean-Variance with risk aversion parameter 1.0
 
     prop_cost = 0.01
     cost_function: CostFunction = ProportionalCost(prop_cost)
@@ -93,7 +94,6 @@ def main():
     # res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
     # print(res)
     # runners.append(recurrent_runner_adam)
-
 
     # # Recurrent agent - trainable, no stock_params needed
     # recurrent_runner_adam = SimpleRunner("CVaR (p = 0.99)", use_gpu=True)
