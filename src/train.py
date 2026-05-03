@@ -50,7 +50,7 @@ def main():
     contingent_claim: Claim = BSCall(stock, S0, T, drift, volatility=0.30)
     hedging_instruments: List[Instrument] = [stock]
 
-    epochs = 5000
+    epochs = 7500
     paths = int(1e5)
     verbose = True
 
@@ -104,11 +104,11 @@ def main():
 
 
     # Recurrent agent - trainable, no stock_params needed
-    recurrent_runner_adam = SimpleRunner("Adam", use_gpu=True)
-    h_dim = 1
-    res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
+    recurrent_runner_sghmc = SimpleRunner("SGHMC", use_gpu=True)
+    h_dim = 16
+    res = recurrent_runner_sghmc.run(contingent_claim, hedging_instruments, criterion, sghmc_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
     print(res)
-    runners.append(recurrent_runner_adam)
+    runners.append(recurrent_runner_sghmc)
 
     # Recurrent agent - trainable, no stock_params needed
     recurrent_runner_sgld = SimpleRunner("SGLD", use_gpu=True)
@@ -118,11 +118,11 @@ def main():
     runners.append(recurrent_runner_sgld)
 
     # Recurrent agent - trainable, no stock_params needed
-    recurrent_runner_sghmc = SimpleRunner("SGHMC", use_gpu=True)
-    h_dim = 16
-    res = recurrent_runner_sghmc.run(contingent_claim, hedging_instruments, criterion, sghmc_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
+    recurrent_runner_adam = SimpleRunner("Adam", use_gpu=True)
+    h_dim = 2
+    res = recurrent_runner_adam.run(contingent_claim, hedging_instruments, criterion, adam_optimizer, T, step_interest_rate, epochs, paths, verbose, cost_function, h_dim)
     print(res)
-    runners.append(recurrent_runner_sghmc)
+    runners.append(recurrent_runner_adam)
 
 
     plot_dists(runners, save=True, file_prefix=f"outputs/adam_sgld_sghmc_0_99")

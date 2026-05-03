@@ -2,10 +2,10 @@
 
 .vscode/
 
-output/
-outputs/
+validation/
 examples/
 weights/
+weights2/
 assets/
 Kaggle.ipynb
 report.pdf

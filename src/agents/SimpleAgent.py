@@ -7,6 +7,7 @@ from ..instruments.Instruments import Instrument
 from ..optimizers import AdamOptimizer, SGLDOptimizer, SGHMCOptimizer
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
+
 class SimpleAgent(Agent):
     '''
     Simple feedforward agent that takes as input the log prices and time to maturity and outputs the action
@@ -38,7 +39,7 @@ class SimpleAgent(Agent):
 
 
         self.optimizer = optimizer(self.network.parameters(), lr=lr)
-        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=5000)
+        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=7500)
 
 
     def input_dim(self) -> int:

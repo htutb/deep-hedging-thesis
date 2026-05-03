@@ -32,39 +32,52 @@ def validation():
     rho = -0.75
     stock = HestonStock(S0, V0, drift, kappa, theta, xi, rho)
 
-    contingent_claim: Claim = BSCall(stock, S0, T, drift, volatility=0.4)
+    contingent_claim: Claim = BSCall(stock, S0, T, drift, volatility=0.3)
     hedging_instruments: List[Instrument] = [stock]
     cost_function = ProportionalCost(0.01)
 
-    # CVaR 0.99
-    criterion = RiskMeasures.CVaR(0.99) # CVaR with confidence level 0.99
-    adam_weights = 'weights/cvar_099/Adam_weights.pt'
-    sgld_weights = 'weights/cvar_099/SGLD_weights.pt'
-    sghmc_weights = 'weights/cvar_099/SGHMC_weights.pt'
+    # loss function 
+    # "cvar_099" "cvar_05" "mean_var"
+    loss_name = "mean_var"
 
-    # CVaR 0.5
-    # criterion = RiskMeasures.CVaR(0.5) # CVaR with confidence level 0.5
-    # adam_weights = 'weights/cvar_05/Adam_weights.pt'
-    # sgld_weights = 'weights/cvar_05/SGLD_weights.pt'
-    # sghmc_weights = 'weights/cvar_05/SGHMC_weights.pt'
+    loss_configs = {
+        "cvar_099": {
+            "criterion":     RiskMeasures.CVaR(0.99),
+            "adam_weights":  "weights2/cvar_099/Adam_weights.pt",
+            "sgld_weights":  "weights2/cvar_099/SGLD_weights.pt",
+            "sghmc_weights": "weights2/cvar_099/SGHMC_weights.pt",
+        },
+        "cvar_05": {
+            "criterion":     RiskMeasures.CVaR(0.5),
+            "adam_weights":  "weights2/cvar_05/Adam_weights.pt",
+            "sgld_weights":  "weights2/cvar_05/SGLD_weights.pt",
+            "sghmc_weights": "weights2/cvar_05/SGHMC_weights.pt",
+        },
+        "mean_var": {
+            "criterion":     RiskMeasures.ExpectationVariance(1.0),
+            "adam_weights":  "weights/mean_var/Adam_weights.pt",
+            "sgld_weights":  "weights/mean_var/SGLD_weights.pt",
+            "sghmc_weights": "weights/mean_var/SGHMC_weights.pt",
+        },
+    }
 
-    # Mean-Variance
-    # criterion = RiskMeasures.ExpectationVariance(0.5) # Mean-Variance with risk aversion parameter 0.5
-    # adam_weights = 'weights/mean_var/Adam_weights.pt'
-    # sgld_weights = 'weights/mean_var/SGLD_weights.pt'
-    # sghmc_weights = 'weights/mean_var/SGHMC_weights.pt'
+    criterion     = loss_configs[loss_name]["criterion"]
+    adam_weights  = loss_configs[loss_name]["adam_weights"]
+    sgld_weights  = loss_configs[loss_name]["sgld_weights"]
+    sghmc_weights = loss_configs[loss_name]["sghmc_weights"]
 
-    # # S&P 500
-    prices_path = 'data/sp500.csv'
-    file_prefix = 'outputs/validation/cvar_099'
+    # index
+    # "sp500" / "nasdaq" / "russell2000"
+    index_name = "russell2000"
 
-    # Nasdaq
-    # prices_path = 'data/nasdaq.csv'
-    # file_prefix = 'outputs/validation/cvar_05'
+    index_configs = {
+        "sp500":      "data/sp500.csv",
+        "nasdaq":     "data/nasdaq.csv",
+        "russell2000": "data/russell2000.csv",
+    }
 
-    # Russell 2000
-    # prices_path = 'data/russell2000.csv'
-    # file_prefix = 'outputs/validation/mean_var'
+    prices_path = index_configs[index_name]
+    file_prefix = f"validation/{loss_name}/{index_name}"
 
 
     validate_from_weights(

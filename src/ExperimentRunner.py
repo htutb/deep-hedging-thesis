@@ -1,3 +1,4 @@
+import json
 from typing import List
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
@@ -105,31 +106,14 @@ class ExperimentRunner:
 
     def plot_path(self):
         portfolio_logs = self.agent.portfolio_logs
-        # all quantities averaged across the  batch
         portfolio_value = portfolio_logs["portfolio_value"].mean(dim=0)   # (T,)
         cash_account    = portfolio_logs["cash_account"].mean(dim=0)      # (T,)
-        claim_payoff    = portfolio_logs["claim_payoff"].mean()           
+        claim_payoff    = portfolio_logs["claim_payoff"].mean()
         claim_price     = claim_payoff
 
-        fig, ax = plt.subplots(1, 2, figsize=(14, 5))
-        for a in ax.flatten():
-            a.grid(True)
+        fig, ax = plt.subplots(figsize=(7, 5))
+        ax.grid(True)
 
-        #left: mean P&L over time
-        pnl = portfolio_value + cash_account
-        pnl += claim_price
-        pnl[-1] -= claim_payoff
-        pnl = pnl[:-1]
-
-        sns.lineplot(x=range(len(pnl)), y=pnl, ax=ax[0])
-        ax[0].set_title("Mean Total P&L (Including Claim)")
-        ax[0].set_xlabel("Time")
-        ax[0].set_ylabel("P&L")
-        ax[0].axhline(y=0, color='black', linestyle='--', alpha=0.5)
-        max_val = max(abs(pnl.min()), abs(pnl.max())) * 1.1
-        ax[0].set_ylim(-max_val, max_val)
-
-        #right: mean terminal breakdown
         final_cash  = cash_account[-1] + claim_price
         final_pv    = portfolio_value[-1]
         categories  = ['Cash', 'PV', 'CC', 'P&L']
@@ -137,20 +121,20 @@ class ExperimentRunner:
                        (final_cash + final_pv - claim_payoff).item()]
         colors      = ['red', 'blue', 'green', 'orange']
 
-        ax[1].bar(categories, values, color=colors)
-        ax[1].set_title("Mean Final Portfolio Value Breakdown")
-        ax[1].set_xlabel("Category")
-        ax[1].set_ylabel("Value")
-        ax[1].hlines(0, -1, len(categories), colors='black', linestyles='dashed')
+        ax.bar(categories, values, color=colors)
+        ax.set_title("Mean Final Portfolio Value Breakdown")
+        ax.set_xlabel("Category")
+        ax.set_ylabel("Value")
+        ax.hlines(0, -1, len(categories), colors='black', linestyles='dashed')
 
         max_val = max(abs(min(values)), abs(max(values))) * 1.2
-        ax[1].set_ylim(-max_val, max_val)
+        ax.set_ylim(-max_val, max_val)
 
         padding = max_val * 0.04
         for j, v in enumerate(values):
             y  = v + padding if v >= 0 else v - padding
             va = 'bottom' if v >= 0 else 'top'
-            ax[1].text(j, y, f"{v:.2f}", color='black', ha='center', va=va, fontweight='bold')
+            ax.text(j, y, f"{v:.2f}", color='black', ha='center', va=va, fontweight='bold')
 
         fig.tight_layout()
         return fig
@@ -322,6 +306,7 @@ def validate_from_weights(
     }
 
     runners = []
+    results = {}
 
     for agent_type, (weight_path, optimizer_cls) in weight_map.items():
         # load state dict (for h_dim)
@@ -377,9 +362,14 @@ def validate_from_weights(
             f"[{agent_type}]  mean P&L: {profit.mean():.4f}  std: {profit.std():.4f}"
             f"  |  Realized {criterion.__class__.__name__}: {realized_loss:.4f}"
         )
+        results[agent_type] = {
+            "mean_pnl":     round(profit.mean().item(), 6),
+            "std_pnl":      round(profit.std().item(), 6),
+            f"realized_{criterion.__class__.__name__}": round(realized_loss, 6),
+        }
         runners.append(runner)
 
-    output_dir = os.path.dirname(file_prefix)
+    output_dir = file_prefix.rstrip("/")
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
@@ -387,14 +377,18 @@ def validate_from_weights(
     for runner in runners:
         fig = runner.plot_path()
         if save:
-            fig.savefig(f"{file_prefix}_{runner.agent_type}_summary.pdf")
+            fig.savefig(os.path.join(output_dir, f"{runner.agent_type}_summary.pdf"))
 
     # combined positions comparison
     fig_cmp = plot_positions_comparison(runners)
     if save:
-        fig_cmp.savefig(f"{file_prefix}_positions_comparison.pdf")
+        fig_cmp.savefig(os.path.join(output_dir, "positions_comparison.pdf"))
 
-    plt.show()
+    plt.close('all')
+
+    if save:
+        with open(os.path.join(output_dir, "results.json"), "w") as f:
+            json.dump(results, f, indent=2)
 
     return runners
 
@@ -454,13 +448,13 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
     ax2.set_title("Price-adjusted P&L")
     
     # CVaR (0.99)
-    ax2.set_xlim(-0.2, 0.8)
+    ax2.set_xlim(-0.1, 0.6)
 
     # CVaR (0.5)
-    # ax2.set_xlim(-0.6, 0.4)
+    # ax2.set_xlim(-0.4, 0.3)
 
     # Mean-Variance
-    # ax2.set_xlim(-0.6, 0.4)
+    # ax2.set_xlim(-0.4, 0.3)
 
     ax2.grid()
     ax2.legend()
@@ -477,9 +471,10 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
             val_loss = runner.validation_logs["validation_loss"]
 
             ax3.plot(
-                range(len(losses)), 
-                losses, 
-                label=f'{runner.agent_type}, Loss: {val_loss:.2f}'
+                range(len(losses)),
+                losses,
+                label=f'{runner.agent_type}, Loss: {val_loss:.2f}',
+                linewidth=2.5 if runner.agent_type == "Adam" else 1.0,
             )
 
     ax3.set_title("Training Loss Curves")
@@ -487,14 +482,15 @@ def plot_dists(runners: List[ExperimentRunner], save=False, file_prefix='plot', 
     ax3.set_ylabel("Loss")
     ax3.grid(True)
     ax3.legend()
+
     # CVaR (0.99)
-    ax3.set_ylim(0, 5)
+    # ax3.set_ylim(0.0, 3.5)
 
     # CVaR (0.5)
-    # ax3.set_ylim(0, 3)
+    ax3.set_ylim(0.0, 1.25)
 
     # Mean-Variance
-    # ax3.set_ylim(0, 3)
+    # ax3.set_ylim(0.0, 1.0)
 
     if save:
         plt.savefig(f"{file_prefix}_training_losses.pdf")
