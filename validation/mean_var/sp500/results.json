@@ -1,0 +1,17 @@
+{
+  "Adam": {
+    "mean_pnl": -0.039654,
+    "std_pnl": 0.030068,
+    "realized_ExpectationVariance": 0.040558
+  },
+  "SGLD": {
+    "mean_pnl": -0.036873,
+    "std_pnl": 0.024089,
+    "realized_ExpectationVariance": 0.037453
+  },
+  "SGHMC": {
+    "mean_pnl": -0.034943,
+    "std_pnl": 0.020847,
+    "realized_ExpectationVariance": 0.035378
+  }
+}

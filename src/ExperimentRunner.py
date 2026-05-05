@@ -134,7 +134,7 @@ class ExperimentRunner:
         for j, v in enumerate(values):
             y  = v + padding if v >= 0 else v - padding
             va = 'bottom' if v >= 0 else 'top'
-            ax.text(j, y, f"{v:.2f}", color='black', ha='center', va=va, fontweight='bold')
+            ax.text(j, y, f"{v:.3f}", color='black', ha='center', va=va, fontweight='bold')
 
         fig.tight_layout()
         return fig
@@ -362,10 +362,26 @@ def validate_from_weights(
             f"[{agent_type}]  mean P&L: {profit.mean():.4f}  std: {profit.std():.4f}"
             f"  |  Realized {criterion.__class__.__name__}: {realized_loss:.4f}"
         )
+        pv_logs       = runner.agent.portfolio_logs
+        claim_price   = claim_payoff.cpu().mean()                          # scalar (mean premium)
+        cash_b        = pv_logs["cash_account"][:, -1] + claim_price      # (B,)
+        pv_b          = pv_logs["portfolio_value"][:, -1]                  # (B,)
+        cc_b          = -pv_logs["claim_payoff"]                           # (B,)
+        pnl_b         = cash_b + pv_b + cc_b                              # (B,)
+
+        def ms(t):
+            return {"mean": round(t.mean().item(), 6), "std": round(t.std().item(), 6)}
+
         results[agent_type] = {
             "mean_pnl":     round(profit.mean().item(), 6),
             "std_pnl":      round(profit.std().item(), 6),
             f"realized_{criterion.__class__.__name__}": round(realized_loss, 6),
+            "breakdown": {
+                "Cash": ms(cash_b),
+                "PV":   ms(pv_b),
+                "CC":   ms(cc_b),
+                "PnL":  ms(pnl_b),
+            },
         }
         runners.append(runner)
 
@@ -387,8 +403,15 @@ def validate_from_weights(
     plt.close('all')
 
     if save:
+        summary = {agent: {k: v for k, v in vals.items() if k != "breakdown"}
+                   for agent, vals in results.items()}
+        breakdown = {agent: vals["breakdown"] for agent, vals in results.items()}
+
         with open(os.path.join(output_dir, "results.json"), "w") as f:
-            json.dump(results, f, indent=2)
+            json.dump(summary, f, indent=2)
+
+        with open(os.path.join(output_dir, "breakdown.json"), "w") as f:
+            json.dump(breakdown, f, indent=2)
 
     return runners
 

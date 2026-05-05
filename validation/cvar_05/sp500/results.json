@@ -1,0 +1,17 @@
+{
+  "Adam": {
+    "mean_pnl": -0.039157,
+    "std_pnl": 0.028569,
+    "realized_CVaR": 0.065417
+  },
+  "SGLD": {
+    "mean_pnl": -0.036768,
+    "std_pnl": 0.022639,
+    "realized_CVaR": 0.05913
+  },
+  "SGHMC": {
+    "mean_pnl": -0.036204,
+    "std_pnl": 0.018273,
+    "realized_CVaR": 0.055616
+  }
+}

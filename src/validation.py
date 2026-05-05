@@ -38,20 +38,20 @@ def validation():
 
     # loss function 
     # "cvar_099" "cvar_05" "mean_var"
-    loss_name = "mean_var"
+    loss_name = "cvar_099"
 
     loss_configs = {
         "cvar_099": {
             "criterion":     RiskMeasures.CVaR(0.99),
-            "adam_weights":  "weights2/cvar_099/Adam_weights.pt",
-            "sgld_weights":  "weights2/cvar_099/SGLD_weights.pt",
-            "sghmc_weights": "weights2/cvar_099/SGHMC_weights.pt",
+            "adam_weights":  "weights/cvar_099/Adam_weights.pt",
+            "sgld_weights":  "weights/cvar_099/SGLD_weights.pt",
+            "sghmc_weights": "weights/cvar_099/SGHMC_weights.pt",
         },
         "cvar_05": {
             "criterion":     RiskMeasures.CVaR(0.5),
-            "adam_weights":  "weights2/cvar_05/Adam_weights.pt",
-            "sgld_weights":  "weights2/cvar_05/SGLD_weights.pt",
-            "sghmc_weights": "weights2/cvar_05/SGHMC_weights.pt",
+            "adam_weights":  "weights/cvar_05/Adam_weights.pt",
+            "sgld_weights":  "weights/cvar_05/SGLD_weights.pt",
+            "sghmc_weights": "weights/cvar_05/SGHMC_weights.pt",
         },
         "mean_var": {
             "criterion":     RiskMeasures.ExpectationVariance(1.0),
@@ -68,7 +68,7 @@ def validation():
 
     # index
     # "sp500" / "nasdaq" / "russell2000"
-    index_name = "russell2000"
+    index_name = "sp500"
 
     index_configs = {
         "sp500":      "data/sp500.csv",
